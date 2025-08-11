@@ -62,6 +62,7 @@ Available tasks:
   ena_immich_func_tracing
   ena_immich_log
   ena_redis_monitor
+  get_db_schema_drift
   get_immich_log
   get_postgres_records
   get_redis_all_records

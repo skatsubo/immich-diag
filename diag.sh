@@ -211,6 +211,39 @@ get_redis_monitor() {
 }
 
 #
+# DB schema tasks
+#
+get_db_schema_drift() {
+    if [[ "${1:-}" =~ --help|-h ]]; then
+        echo "Usage: get_db_schema_drift"
+        echo
+        echo "Example: $0 get_db_schema_drift"
+        echo
+        echo "Checks for database schema drift (differences between the expected schema from code and actual schema in Postgres) as reported by bin/migration.js from Immich."
+        echo "Outputs SQL commands to fix the drift"
+        echo
+        exit 0
+    fi
+
+    log_task "Get database schema drift"
+
+    local schema_drift_output="$output_dir/db_schema_drift.log"
+
+    # one-liner
+    # docker exec immich_server sh -c 'DB_URL=postgres://$DB_USERNAME:$DB_PASSWORD@database:5432/$DB_DATABASE_NAME node ./server/dist/bin/migrations.js debug && cat migrations.sql'
+    docker exec -i --user root "$immich_container" sh << 'EOF' > "$schema_drift_output"
+        export DB_URL=postgres://$DB_USERNAME:$DB_PASSWORD@database:5432/$DB_DATABASE_NAME
+        node ./server/dist/bin/migrations.js debug
+        cat migrations.sql
+EOF
+    if [[ $(tr -d '\n' <"$schema_drift_output") == 'Wrote migrations.sql-- UP' ]] ; then
+        log "No schema drift detected"
+    else
+        log "⚠️ Schema drift detected. Check the output in file: $schema_drift_output"
+    fi
+}
+
+#
 # data fetching tasks
 #
 get_postgres_records() {
