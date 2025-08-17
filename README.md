@@ -64,6 +64,7 @@ Available tasks:
   ena_redis_monitor
   get_db_schema_drift
   get_immich_log
+  get_ml_clip_distance
   get_postgres_records
   get_redis_all_records
   get_redis_events

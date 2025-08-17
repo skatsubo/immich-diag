@@ -89,6 +89,8 @@ ena_immich_func_tracing() {
         echo "Usage: ena_immich_func_tracing [<files>]"
         echo "  <files>    A space separated list of files to patch with function tracing. [WIP]"
         echo "             Paths can be relative to the project root or absolute (in container)."
+        echo "             Paths should be specified as seen inside the container,"
+        echo "             either relative to the app root (/usr/src/app) or absolute."
         echo "             Default: server/dist/services/job.service.js server/dist/repositories/job.repository.js"
         echo "Example: $0 ena_immich_func_tracing"
         echo
@@ -246,6 +248,70 @@ EOF
 #
 # data fetching tasks
 #
+get_ml_clip_distance() {
+    if [[ $# -eq 0 ]] || [[ "${1:-}" =~ --help|-h ]]; then
+        echo "Usage: get_ml_clip_distance <search_term> [filenames...]"
+        echo "  <search_term>   Search keyword or phrase (quoted if contains spaces). Required."
+        echo "  <filenames>     A space separated list of asset file names."
+        echo "             "
+        echo "Example: $0 get_ml_clip_distance "'"brick road"'
+        echo "         $0 get_ml_clip_distance motorcycle IMG_3952.jpg motorcycle.webp"
+        echo
+        echo "Returns cosine distance between the search query and (a) top 10 search results by closest distance, (b) assets having specified file names."
+        echo
+        exit 0
+    fi
+
+    local search="$1"
+    shift
+    local filenames=''
+    if [[ $# -ge 1 ]] ; then
+        filenames="$*"
+    fi
+
+    if [[ -n $filenames ]]; then
+        log_task "Get ML CLIP distances for top search results and for files: $filenames"
+    else
+        log_task "Get ML CLIP distances for top search results"
+    fi
+
+    local ml_clip_output="$output_dir/ml_clip_distance.log"
+
+    # TODO: autodiscover or pass as args
+    local model='ViT-B-16-SigLIP2__webli'
+    local url='http://immich-machine-learning:3003'
+
+    local clip
+    clip=$(docker exec "$immich_container" curl -sS -F 'entries={"clip":{"textual":{"modelName":"'$model'"}}}' -F "text=$search" "$url"/predict)
+    # CLIP response looks like {"clip":"[0.01392003,0.003079181,...]"}
+    debug CLIP response: "${clip:0:62} ... ${clip: -16}"
+
+    SQL=$(cat <<-'EOF'
+		SELECT '--- Query 1: Top matches ---' AS section;
+		SELECT cast( (:'clip'::json->>'clip')::vector <=> ss.embedding AS DECIMAL(7,6) ) AS cosine_distance,
+		  a."originalFileName", a."originalPath"
+		FROM asset a
+		JOIN smart_search ss ON a.id = ss."assetId"
+		ORDER BY cosine_distance ASC
+        LIMIT 10;
+		SELECT '--- Query 2: Files ---' AS section;
+		SELECT cast( (:'clip'::json->>'clip')::vector <=> ss.embedding AS DECIMAL(7,6) ) AS cosine_distance,
+		  a."originalFileName", a."originalPath"
+		FROM asset a
+		JOIN smart_search ss ON a.id = ss."assetId"
+		WHERE a."originalFileName" = ANY(
+		  SELECT unnest(string_to_array(:'filenames', ' '))
+		)
+		ORDER BY cosine_distance ASC;
+		EOF
+    )
+
+    # echo "$SQL" | docker exec -i --user postgres "$postgres_container" psql -q -v clip="$clip" -d immich > "$ml_clip_output" 2>&1
+    echo "$SQL" | docker exec -i --user postgres "$postgres_container" \
+      psql -q -Pfooter=off -v clip="$clip" -v clip="$clip" -v filenames="$filenames" -d immich 2>&1 | tee "$ml_clip_output"
+    #   psql -q -v clip="$clip" -v clip="$clip" -v filenames="$filenames" -d immich > "$ml_clip_output" 2>&1 
+}
+
 get_postgres_records() {
     log_task "Get Postgres records"
     POSTGRES_OUTPUT="$output_dir/postgres_records.log"
