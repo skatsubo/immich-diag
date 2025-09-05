@@ -8,10 +8,8 @@ script_dir=$(dirname "$0")
 immich_container="${IMMICH_CONTAINER:-immich_server}"
 redis_container="${REDIS_CONTAINER:-immich_redis}"
 postgres_container="${POSTGRES_CONTAINER:-immich_postgres}"
+postgres_user="${POSTGRES_USER:-postgres}"
 
-immich_container="immich_server"
-redis_container="immich_redis"
-postgres_container="immich_postgres"
 # output relative to the current working dir
 output_dir="diag_$(date +%Y%m%d_%H%M%S)"
 script_log="$output_dir/diag.log"
@@ -127,6 +125,25 @@ EOF
     docker exec "$immich_container" node "$dist_path/bin/diag-add-logging.js" $files_to_patch
 }
 
+# WIP
+ena_postgres_query_log() {
+    if [[ "${1:-}" =~ --help|-h ]]; then
+        echo "Usage: ena_postgres_query_log"
+        echo
+        echo "Example: $0 ena_postgres_query_log"
+        echo "         POSTGRES_CONTAINER=ImmichPostgresVEC POSTGRES_USER=immichpguser $0 ena_postgres_query_log"
+        echo
+        exit 0
+    fi
+
+    log_task "Enable logging of all queries in Postgres"
+
+    ENABLE_LOG="ALTER SYSTEM SET log_statement = 'all';
+    ALTER SYSTEM SET log_destination = 'stderr';
+    ALTER SYSTEM SET log_temp_files = 0;
+    SELECT pg_reload_conf();"
+    docker exec -i --user "$postgres_user" "$postgres_container" psql <<< "$ENABLE_LOG"
+}
 
 ena_redis_monitor() {
     if [[ "${1:-}" =~ --help|-h ]]; then
