@@ -78,7 +78,7 @@ Available tasks:
 
 Available presets
   default:   wait_intro ena_immich_log ena_redis_monitor wait_user dis_redis_monitor get_immich_log get_redis_monitor get_redis_events get_redis_jobs
-  redis:     ena_redis_monitor user_wait dis_redis_monitor get_redis_monitor get_redis_all_records
+  redis:     ena_redis_monitor wait_user dis_redis_monitor get_redis_monitor get_redis_all_records
 ```
 
 Show help for a specific task:

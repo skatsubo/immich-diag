@@ -25,7 +25,7 @@ declare -a all_tasks_list
 # presets: ordered tasks to execute during a troubleshooting session
 declare -A presets
 presets["default"]="wait_intro ena_immich_log ena_redis_monitor wait_user dis_redis_monitor get_immich_log get_redis_monitor get_redis_events get_redis_jobs"
-presets["redis"]="ena_redis_monitor user_wait dis_redis_monitor get_redis_monitor get_redis_all_records"
+presets["redis"]="ena_redis_monitor wait_user dis_redis_monitor get_redis_monitor get_redis_all_records"
 
 task_prefix_pattern='^(ena|dis|get|proc|wait)_'
 redis_monitor_pid=""
